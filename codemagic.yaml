@@ -5,13 +5,21 @@ workflows:
     instance_type: mac_mini_m2
     environment:
       flutter: stable
+      java: 17
     scripts:
       - name: Generate Android folder
         script: |
           flutter create .
           flutter pub get
+          
+      - name: Create Gradle Wrapper
+        script: |
+          cd android
+          gradle wrapper --gradle-version 8.4
+          
       - name: Build APK
         script: |
-          flutter build apk --release
+          flutter build apk --release --split-per-abi
+          
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
