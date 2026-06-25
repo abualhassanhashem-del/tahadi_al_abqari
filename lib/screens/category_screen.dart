@@ -89,7 +89,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
   }
 
   void _openWheel() {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => const WheelScreen())).then((_) => _loadData());
+    Navigator.push(context, MaterialPageRoute(builder: (_) => WheelScreen())).then((_) => _loadData());
   }
 
   @override
