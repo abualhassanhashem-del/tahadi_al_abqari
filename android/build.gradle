@@ -1,33 +1,17 @@
-buildscript {
-    ext.kotlin_version = '2.2.20'
-    ext.compileSdkVersion = 36
-    
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:8.2.2' // حدثت من 7.3.0
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath 'com.google.gms:google-services:4.4.2' // حدثت من 4.4.0
-    }
+plugins {
+    id 'com.android.application' version '8.2.2' apply false
+    id 'org.jetbrains.kotlin.android' version '2.2.20' apply false
+    id 'com.google.gms.google-services' version '4.4.2' apply false
+}
+
+ext {
+    compileSdkVersion = 36
+    buildToolsVersion = "36.0.0"
 }
 
 allprojects {
     repositories {
         google()
         mavenCentral()
-    }
-}
-
-// هذا يجبر كل المكتبات تستخدم 36
-subprojects {
-    afterEvaluate { project ->
-        if (project.hasProperty('android')) {
-            android {
-                compileSdkVersion rootProject.ext.compileSdkVersion
-                buildToolsVersion "36.0.0"
-            }
-        }
     }
 }
