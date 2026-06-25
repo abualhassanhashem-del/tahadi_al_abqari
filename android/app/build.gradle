@@ -26,15 +26,15 @@ if (flutterVersionName == null) {
 android {
     namespace "com.example.tahadi_al_abqari"
     compileSdkVersion 36
-    ndkVersion "28.2.13676358"  // غيرته لاعلى اصدار
+    ndkVersion "28.2.13676358"
 
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17  // غيرت من 1.8 ل 17
+        targetCompatibility JavaVersion.VERSION_17  // غيرت من 1.8 ل 17
     }
     
-    kotlinOptions {  // اضفت هذا حتى يتوافق مع Kotlin 17
-        jvmTarget = '17'
+    kotlinOptions {
+        jvmTarget = '17'  // يبقى 17
     }
 
     defaultConfig {
