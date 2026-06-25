@@ -48,16 +48,25 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.debug
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+
+    packagingOptions {
+        resources {
+            excludes += '/META-INF/{AL2.0,LGPL2.1}'
         }
     }
 }
 
-// هذا الكود الجديد: يفرض compileSdk 36 على كل المكتبات
+// يجبر كل المكتبات تستخدم compileSdk 36
 subprojects {
     afterEvaluate { project ->
         if (project.hasProperty('android')) {
             android {
-                compileSdkVersion 36
+                compileSdkVersion rootProject.ext.compileSdkVersion
+                buildToolsVersion "36.0.0"
             }
         }
     }
