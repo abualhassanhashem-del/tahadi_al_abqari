@@ -23,9 +23,15 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
+// هالسطرين ضروريين علمود الباكجات تقراهم
+ext {
+    compileSdkVersion = 36
+    buildToolsVersion = "36.0.0"
+}
+
 android {
     namespace "com.example.tahadi_al_abqari"
-    compileSdkVersion 36
+    compileSdk 36  // غيرتها من compileSdkVersion
     ndkVersion "28.2.13676358"
 
     compileOptions {
@@ -39,8 +45,8 @@ android {
 
     defaultConfig {
         applicationId "com.example.tahadi_al_abqari"
-        minSdkVersion 21
-        targetSdkVersion 36
+        minSdk 21  // غيرتها من minSdkVersion
+        targetSdk 36  // غيرتها من targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }
@@ -65,8 +71,8 @@ subprojects {
     afterEvaluate { project ->
         if (project.hasProperty('android')) {
             android {
-                compileSdkVersion rootProject.ext.compileSdkVersion
-                buildToolsVersion "36.0.0"
+                compileSdk rootProject.ext.compileSdkVersion  // AGP 8.6 صيغة جديدة
+                buildToolsVersion rootProject.ext.buildToolsVersion
             }
         }
     }
