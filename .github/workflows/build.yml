@@ -12,7 +12,7 @@ jobs:
         with:
           flutter-version: '3.22.0'
       - run: flutter pub get
-      - run: flutter build apk --release
+      - run: cd android && ./gradlew assembleRelease --stacktrace
       - uses: actions/upload-artifact@v4
         with:
           name: app-release
