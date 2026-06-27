@@ -13,12 +13,11 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.22.0'
+      - run: flutter clean
       - run: flutter pub get
       - run: flutter create . --platforms=android
-      - run: flutter build apk --release
+      - run: flutter build apk --release --split-per-abi=false
       - uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: |
-            build/app/outputs/flutter-apk/*.apk
-            build/app/outputs/bundle/**/*.aab
+          path: build/app/outputs/flutter-apk/app-release.apk
