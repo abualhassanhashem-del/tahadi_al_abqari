@@ -27,15 +27,24 @@ jobs:
           echo "keyAlias=upload" >> android/key.properties
           echo "storeFile=upload-keystore.jks" >> android/key.properties
           
+      - name: Flutter Clean
+        run: flutter clean
+        
       - run: flutter pub get
       
-      - name: Build APK
-        run: flutter build apk --release --split-per-abi
+      - name: Build APK with logs
+        run: flutter build apk --release --verbose
         
       - name: Show APK files
-        run: ls -R build/app/outputs/
-        
+        if: always()
+        run: |
+          echo "==== APK FILES ===="
+          find . -name "*.apk" -type f
+          echo "==== BUILD DIR ===="
+          ls -R build/ || true
+          
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: all-apks
-          path: build/app/outputs/flutter-apk/
+          name: build-output
+          path: build/
