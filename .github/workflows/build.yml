@@ -27,17 +27,21 @@ jobs:
           echo "keyAlias=upload" >> android/key.properties
           echo "storeFile=upload-keystore.jks" >> android/key.properties
           
-      - name: Flutter Clean
-        run: flutter clean
-        
+      - run: flutter clean
       - run: flutter pub get
       
       - name: Build APK
         run: flutter build apk --release
+        continue-on-error: true
         
+      - name: Find and Upload APK
+        run: |
+          echo "=== Searching for APK ==="
+          find . -name "*.apk" -type f
+          
       - uses: actions/upload-artifact@v4
         with:
-          name: tahadi-release-apk
+          name: tahadi-apk-FINAL
           path: |
-            android/app/build/outputs/flutter-apk/app-release.apk
-            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/**/*.apk
+          if-no-files-found: error
