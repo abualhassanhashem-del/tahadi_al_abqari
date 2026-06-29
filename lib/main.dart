@@ -1,11 +1,18 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'screens/category_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+
+  // Firebase اختياري (لا يوقف التطبيق إذا فشل)
+  try {
+    await Firebase.initializeApp();
+  } catch (e) {
+    debugPrint("Firebase not available: $e");
+  }
+
   runApp(const MyApp());
 }
 
@@ -35,37 +42,44 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  String status = 'جاري الاتصال بـ Firebase...';
-  bool hasError = false;
+  String status = 'تشغيل اللعبة...';
+  bool isOnline = false;
 
   @override
   void initState() {
     super.initState();
-    _checkFirebaseAndNavigate();
+    _init();
   }
 
-  Future<void> _checkFirebaseAndNavigate() async {
+  Future<void> _init() async {
+    await _checkFirebase();
+  }
+
+  Future<void> _checkFirebase() async {
     try {
-      // نجرب نقرأ من Firestore
-      await FirebaseFirestore.instance.collection('players').limit(1).get();
-      
-      setState(() => status = '✅ تم الاتصال بنجاح!');
-      
-      // ننتظر ثانية ونص عشان المستخدم يشوف الرسالة
-      await Future.delayed(const Duration(milliseconds: 1500));
-      
-      if (mounted) {
-        // ندخل اللعبة
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const CategoryScreen()),
-        );
-      }
+      await FirebaseFirestore.instance
+          .collection('players')
+          .limit(1)
+          .get();
+
+      isOnline = true;
+      status = 'تم الاتصال بالخادم';
     } catch (e) {
-      setState(() {
-        status = '❌ خطأ في الاتصال\nتأكد من google-services.json';
-        hasError = true;
-      });
+      isOnline = false;
+      status = 'وضع أوفلاين';
     }
+
+    if (!mounted) return;
+
+    setState(() {});
+
+    await Future.delayed(const Duration(milliseconds: 1000));
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const CategoryScreen()),
+    );
   }
 
   @override
@@ -87,33 +101,19 @@ class _SplashScreenState extends State<SplashScreen> {
               const SizedBox(height: 20),
               const Text(
                 'تحدي العباقرة',
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
-              const SizedBox(height: 40),
-              if (!hasError) const CircularProgressIndicator(color: Colors.white),
+              const SizedBox(height: 30),
+              const CircularProgressIndicator(color: Colors.white),
               const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 40),
-                child: Text(
-                  status,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 16, color: Colors.white),
-                ),
+              Text(
+                status,
+                style: const TextStyle(color: Colors.white),
               ),
-              if (hasError) ...[
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      status = 'جاري إعادة المحاولة...';
-                      hasError = false;
-                    });
-                    _checkFirebaseAndNavigate();
-                  },
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
-                  child: const Text('إعادة المحاولة', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-                ),
-              ],
             ],
           ),
         ),
