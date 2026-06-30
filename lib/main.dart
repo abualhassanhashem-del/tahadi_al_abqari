@@ -1,18 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/category_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Firebase اختياري (لا يوقف التطبيق إذا فشل)
-  try {
-    await Firebase.initializeApp();
-  } catch (e) {
-    debugPrint("Firebase not available: $e");
-  }
-
+  await Firebase.initializeApp();
   runApp(const MyApp());
 }
 
@@ -42,44 +36,60 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  String status = 'تشغيل اللعبة...';
-  bool isOnline = false;
+  String status = 'جاري التحقق من بيانات المستخدم...';
+  bool hasError = false;
 
   @override
   void initState() {
     super.initState();
-    _init();
+    _checkUserAndNavigate();
   }
 
-  Future<void> _init() async {
-    await _checkFirebase();
-  }
-
-  Future<void> _checkFirebase() async {
+  Future<void> _checkUserAndNavigate() async {
     try {
-      await FirebaseFirestore.instance
-          .collection('players')
-          .limit(1)
-          .get();
+      // التحقق أولاً إذا كان اللاعب مسجلاً لاسم من قبل لتجنب التعطل
+      final prefs = await SharedPreferences.getInstance();
+      String? playerName = prefs.getString('playerName');
 
-      isOnline = true;
-      status = 'تم الاتصال بالخادم';
+      // إذا لم يسجل اللاعب اسمه بعد، ننتقل مباشرة لشاشة الأقسام
+      if (playerName == null || playerName.isEmpty) {
+        setState(() => status = 'مرحباً بك في تحدي العباقرة!');
+        await Future.delayed(const Duration(milliseconds: 1000));
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const CategoryScreen()),
+          );
+        }
+        return;
+      }
+
+      setState(() => status = 'جاري الاتصال بـ Firebase...');
+      
+      // نجرب نقرأ من Firestore للتأكد من الاتصال
+      await FirebaseFirestore.instance.collection('players').doc(playerName).get();
+      
+      setState(() => status = '✅ تم الاتصال بنجاح!');
+      
+      await Future.delayed(const Duration(milliseconds: 1500));
+      
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const CategoryScreen()),
+        );
+      }
     } catch (e) {
-      isOnline = false;
-      status = 'وضع أوفلاين';
+      setState(() {
+        status = '❌ خطأ في الاتصال بالسيرفر\nجاري الدخول بوضع عدم الاتصال...';
+        hasError = true;
+      });
+      // ننتقل بعد ثانية في حالة وجود خطأ بالنت لكي لا يعلق التطبيق
+      await Future.delayed(const Duration(seconds: 1));
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const CategoryScreen()),
+        );
+      }
     }
-
-    if (!mounted) return;
-
-    setState(() {});
-
-    await Future.delayed(const Duration(milliseconds: 1000));
-
-    if (!mounted) return;
-
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const CategoryScreen()),
-    );
   }
 
   @override
@@ -101,18 +111,18 @@ class _SplashScreenState extends State<SplashScreen> {
               const SizedBox(height: 20),
               const Text(
                 'تحدي العباقرة',
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
               ),
-              const SizedBox(height: 30),
-              const CircularProgressIndicator(color: Colors.white),
+              const SizedBox(height: 40),
+              if (!hasError) const CircularProgressIndicator(color: Colors.white),
               const SizedBox(height: 20),
-              Text(
-                status,
-                style: const TextStyle(color: Colors.white),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Text(
+                  status,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16, color: Colors.white),
+                ),
               ),
             ],
           ),
