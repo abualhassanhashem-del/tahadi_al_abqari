@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import 'dart:convert';
-import 'package:share_plus/share_plus.dart';
 
 class QuizScreen extends StatefulWidget {
   final String category;
@@ -26,9 +25,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
   bool showAnswer = false;
   bool _isLoading = true;
-  bool _isUpdating = false;
-
-  List<int> disabledAnswers = [];
+  bool hasError = false;
 
   @override
   void initState() {
@@ -55,12 +52,22 @@ class _QuizScreenState extends State<QuizScreen> {
     try {
       List allQ = [];
 
-      String? cached =
-          prefs.getString('cached_questions_${widget.category}');
+      String? cached = prefs.getString('cached_questions_${widget.category}');
 
       if (cached != null && cached.isNotEmpty) {
         allQ = json.decode(cached);
       } else {
+        // حماية: استخدام DefaultAssetBundle للوصول الآمن لملفات assets
+        final manifestContent = await DefaultAssetBundle.of(context)
+            .loadString('AssetManifest.json');
+        final Map<String, dynamic> manifestMap = json.decode(manifestContent);
+        
+        // التحقق من وجود الملف قبل تحميله لتجنب الكرش
+        if (!manifestMap.containsKey('assets/questions.json')) {
+          setState(() => hasError = true);
+          return;
+        }
+
         final data = await DefaultAssetBundle.of(context)
             .loadString("assets/questions.json");
 
@@ -83,17 +90,25 @@ class _QuizScreenState extends State<QuizScreen> {
       if (!mounted) return;
 
       setState(() {
-        questions = allQ..shuffle();
+        // التأكد من خلط الأسئلة بأمان
+        if (allQ.isNotEmpty) {
+          questions = List.from(allQ)..shuffle();
+        } else {
+          questions = [];
+        }
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('خطأ في تحميل الأسئلة: $e');
       if (!mounted) return;
-      setState(() => questions = []);
+      setState(() {
+        questions = [];
+        hasError = true;
+      });
     }
   }
 
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
-
     if (!mounted) return;
 
     setState(() {
@@ -112,7 +127,7 @@ class _QuizScreenState extends State<QuizScreen> {
       if (timer > 0) {
         setState(() => timer--);
       } else {
-        _nextQuestion(false);
+        _nextQuestion();
       }
     });
   }
@@ -122,12 +137,17 @@ class _QuizScreenState extends State<QuizScreen> {
 
     _timer?.cancel();
 
+    // حماية إضافية للتحقق من وجود الأسئلة ومفتاح الإجابة الصحيحة
+    if (questions.isEmpty || currentQ >= questions.length) return;
+
     final q = questions[currentQ];
     bool correct = index == q['correct'];
 
     if (correct) {
-      coins += 10;
-      correctAnswers++;
+      setState(() {
+        coins += 10;
+        correctAnswers++;
+      });
       _saveCoins();
       _syncCoins();
     }
@@ -135,18 +155,17 @@ class _QuizScreenState extends State<QuizScreen> {
     setState(() => showAnswer = true);
 
     Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) _nextQuestion(correct);
+      if (mounted) _nextQuestion();
     });
   }
 
-  void _nextQuestion(bool ok) {
+  void _nextQuestion() {
     if (!mounted) return;
 
     if (currentQ < questions.length - 1) {
       setState(() {
         currentQ++;
         showAnswer = false;
-        disabledAnswers.clear();
       });
 
       _startTimer();
@@ -159,13 +178,15 @@ class _QuizScreenState extends State<QuizScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final name = prefs.getString('playerName');
-      if (name == null) return;
+      if (name == null || name.isEmpty) return;
 
       await FirebaseFirestore.instance
           .collection('players')
           .doc(name)
           .set({'coins': coins}, SetOptions(merge: true));
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('فشل المزامنة: $e');
+    }
   }
 
   Future<void> _saveCoins() async {
@@ -179,6 +200,7 @@ class _QuizScreenState extends State<QuizScreen> {
     if (!mounted) return;
 
     showDialog(
+      barrierDismissible: false,
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('انتهت اللعبة'),
@@ -187,8 +209,8 @@ class _QuizScreenState extends State<QuizScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
+              Navigator.pop(context); // إغلاق الـ Dialog
+              Navigator.pop(context); // الرجوع لشاشة الأقسام
             },
             child: const Text('خروج'),
           )
@@ -211,13 +233,21 @@ class _QuizScreenState extends State<QuizScreen> {
       );
     }
 
-    if (questions.isEmpty) {
-      return const Scaffold(
-        body: Center(child: Text('لا توجد أسئلة')),
+    if (hasError || questions.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: Text(widget.category)),
+        body: const Center(
+          child: Text(
+            'لا توجد أسئلة لهذا القسم أو حدث خطأ في التحميل', 
+            textAlign: TextAlign.center,
+          ),
+        ),
       );
     }
 
     final q = questions[currentQ];
+    // حماية للتأكد من وجود مصفوفة الإجابات
+    final List answers = (q['a'] as List?) ?? [];
 
     return Scaffold(
       appBar: AppBar(
@@ -225,16 +255,18 @@ class _QuizScreenState extends State<QuizScreen> {
       ),
       body: Column(
         children: [
-          Text("⏱ $timer | 💰 $coins | 💎 $gems"),
+          Text("⏱ $timer | 💰 $coins | 💎 $gems", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
 
           const SizedBox(height: 10),
 
           Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                q['q'] ?? '',
+                q['q'] ?? 'سؤال بدون نص',
                 textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 20),
               ),
             ),
           ),
@@ -243,20 +275,27 @@ class _QuizScreenState extends State<QuizScreen> {
 
           Expanded(
             child: ListView.builder(
-              itemCount: 4,
+              itemCount: answers.length,
               itemBuilder: (context, i) {
-                final correct = i == q['correct'];
+                final correct = i == (q['correct'] ?? -1);
 
                 return Padding(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: ElevatedButton(
                     onPressed: showAnswer ? null : () => _checkAnswer(i),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: showAnswer
                           ? (correct ? Colors.green : Colors.red)
                           : Colors.white,
+                      minimumSize: const Size.fromHeight(50),
                     ),
-                    child: Text(q['a'][i]),
+                    child: Text(
+                      answers[i].toString(),
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: showAnswer ? Colors.white : Colors.black,
+                      ),
+                    ),
                   ),
                 );
               },
