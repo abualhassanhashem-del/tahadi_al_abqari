@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -30,11 +30,16 @@ class _CategoryScreenState extends State<CategoryScreen> {
     _listenToConnection();
   }
 
-  // 1. يتحقق من النت
+  // 1. يتحقق من النت بأمان
   Future<void> _checkConnection() async {
     var result = await Connectivity().checkConnectivity();
-    setState(() => isOnline = result != ConnectivityResult.none);
-    if (isOnline) _syncDataToFirebase();
+    bool online = result != ConnectivityResult.none;
+    setState(() => isOnline = online);
+    
+    if (online) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      _syncDataToFirebase();
+    }
   }
 
   // 2. يستمع لتغير النت - يزامن تلقائي
@@ -43,7 +48,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
       bool wasOffline = !isOnline;
       setState(() => isOnline = result != ConnectivityResult.none);
       
-      // لو رجع النت، زامن بصمت
       if (wasOffline && isOnline) {
         _syncDataToFirebase();
       }
@@ -59,12 +63,17 @@ class _CategoryScreenState extends State<CategoryScreen> {
     });
   }
 
-  // 3. يزامن العملات للفايربيس (بصمت، ما يطلع خطأ)
+  // 3. يزامن العملات للفايربيس بأمان (مع حماية لاسم اللاعب)
   Future<void> _syncDataToFirebase() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       String? playerName = prefs.getString('playerName');
-      if (playerName == null) return;
+      
+      // ❌ حماية مهمة: إذا لم يسجل اللاعب اسمه بعد، لا تحاول المزامنة لتجنب الكرش
+      if (playerName == null || playerName.isEmpty) {
+        print('لم يتم العثور على اسم لاعب، تم إلغاء المزامنة مؤقتاً');
+        return;
+      }
 
       await FirebaseFirestore.instance.collection('players').doc(playerName).set({
         'coins': coins,
@@ -73,8 +82,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
         'lastSeen': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
-      // بصمت - ما نطلع خطأ للمستخدم
-      print('مزامنة فشلت - سيعاد لاحقاً');
+      print('مزامنة فشلت: $e');
     }
   }
 
@@ -124,7 +132,6 @@ class _CategoryScreenState extends State<CategoryScreen> {
                         Row(
                           children: [
                             Text('مرحلة $level', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                            // مؤشر صغير للنت (اختياري)
                             if (!isOnline) ...[
                               const SizedBox(width: 8),
                               const Icon(Icons.wifi_off, color: Colors.white54, size: 16),
@@ -163,7 +170,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
                         Icon(Icons.casino, color: Colors.amber, size: 32),
                         SizedBox(width: 12),
                         Text('دولاب الحظ - دورة مجانية كل يوم', 
-                          style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
