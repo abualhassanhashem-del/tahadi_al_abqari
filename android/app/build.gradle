@@ -2,7 +2,6 @@ plugins {
     id "com.android.application"
     id "org.jetbrains.kotlin.android"
     id "dev.flutter.flutter-gradle-plugin"
-    id "com.google.gms.google-services"
 }
 
 def localProperties = new Properties()
@@ -23,7 +22,6 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
-// هذا الجزء يقرأ key.properties اللي يسويه GitHub Actions
 def keystoreProperties = new Properties()
 def keystorePropertiesFile = rootProject.file('key.properties')
 if (keystorePropertiesFile.exists()) {
@@ -44,7 +42,6 @@ android {
         jvmTarget = '17'
     }
 
-    // أضفت هذا البلوك
     signingConfigs {
         release {
             keyAlias keystoreProperties['keyAlias']
@@ -64,7 +61,6 @@ android {
 
     buildTypes {
         release {
-            // غيرت السطر هذا من debug إلى release
             signingConfig signingConfigs.release
             minifyEnabled false
             shrinkResources false
